@@ -4,6 +4,8 @@
 use strict;
 use warnings;
 
+use Carp;
+use Data::Dumper;
 use English '-no_match_vars';
 use Getopt::Std;
 use Net::Twitter;
@@ -25,23 +27,53 @@ my @justices = (
 # Other accounts
 my @otherAccounts = ('FakeSCOTUS', 'fakeSCOTUSTest');
 
-# Get the password
-open my $pwFile, '<', '~/scotusPass'
-    or croak "Couldn't read password: $OS_ERROR";
-my $password = <$pwFile>;
-close $pwFile;
-
-
+##########################  End configuration stuff  ##########################
 
 my @accounts;
 unshift @accounts, (@justices, @otherAccounts);
+@accounts = map(lc, @accounts);
 
+my $usage =<<END
+Usage: $0 <justice> all other arguments "are the status"
+END
+;
 
+die $usage unless (scalar @ARGV >= 2);
 
-my $twitter = Net::Twitter->new(
+# Get the account to post as
+my $username = lc shift @ARGV;
+# Everything else is the message
+my $status = join ' ', @ARGV;
+
+# Do we know this justice?
+$username = findAccount($username);
+croak "Couldn't find justice: $username " unless ($username);
+
+# Get the password
+open my $pwFile, '<', $ENV{'HOME'} . '/scotusPass'
+    or croak "Couldn't read password: $OS_ERROR";
+my $password = <$pwFile>;
+close $pwFile;
+chomp $password;
+
+# Make a connection to Twitter
+my $twitterCon = Net::Twitter->new(
     traits      => ['API::REST'],
-    username    => 'fakescotustest',
+    username    => $username,
     password    => $password,
 );
 
-my $result = $twitter->update("Hola, worldo!");
+# Post!
+my $result = $twitterCon->update($status);
+
+sub findAccount {
+    my $username = shift;
+
+    for my $name (@accounts) {
+        if ($name =~ /((fake)?$username)/) {
+            return $1;
+        }
+    }
+
+    return 0;
+}
