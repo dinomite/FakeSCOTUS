@@ -33,8 +33,10 @@ my @accounts;
 unshift @accounts, (@justices, @otherAccounts);
 @accounts = map(lc, @accounts);
 
+my $available = join "\n    ", @accounts;
 my $usage =<<END
 Usage: $0 <justice> all other arguments "are the status"
+    $available
 END
 ;
 
