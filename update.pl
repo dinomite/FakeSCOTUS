@@ -58,15 +58,12 @@ my $password = <$pwFile>;
 close $pwFile;
 chomp $password;
 
-# Make a connection to Twitter
-my $twitterCon = Net::Twitter->new(
-    traits      => ['API::REST'],
-    username    => $username,
-    password    => $password,
-);
-
 # Post!
-my $result = $twitterCon->update($status);
+update($username, $password, $status);
+# Post that to FakeScotusTest, too, with an @ for the original source
+my $mirrorStatus = '@'. $username .' '. $status;
+$mirrorStatus = substr $mirrorStatus, 0, 140;
+update('fakescotus', $password, $mirrorStatus);
 
 sub findAccount {
     my $username = shift;
@@ -78,4 +75,17 @@ sub findAccount {
     }
 
     return 0;
+}
+
+sub update {
+    my ($username, $password, $status) = @_;
+
+    # Make a connection to Twitter
+    my $twitterCon = Net::Twitter->new(
+        traits      => ['API::REST'],
+        username    => $username,
+        password    => $password,
+    );
+
+    return $twitterCon->update($status);
 }
