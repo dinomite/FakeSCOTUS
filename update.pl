@@ -58,11 +58,18 @@ my $password = <$pwFile>;
 close $pwFile;
 chomp $password;
 
+my $length = length $status;
+die "$length characters is too much!" if ($length > 140);
+
 # Post!
 update($username, $password, $status);
+
 # Post that to FakeScotusTest, too, with an @ for the original source
-my $mirrorStatus = '@'. $username .' '. $status;
-$mirrorStatus = substr $mirrorStatus, 0, 140;
+my $mirrorStatus = 'RT @'. $username .' '. $status;
+if (length $mirrorStatus > 140) {
+    # Ellipsize if too long
+    $mirrorStatus = (substr $mirrorStatus, 0, 139) . '…';
+}
 update('fakescotus', $password, $mirrorStatus);
 
 sub findAccount {
