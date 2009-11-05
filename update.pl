@@ -6,6 +6,7 @@ use warnings;
 
 use Carp;
 use Data::Dumper;
+use DateTime;
 use English '-no_match_vars';
 use Getopt::Std;
 use Net::Twitter;
@@ -29,18 +30,29 @@ my @otherAccounts = ('FakeSCOTUS', 'fakeSCOTUSTest');
 
 ##########################  End configuration stuff  ##########################
 
+# Get the password
+open my $pwFile, '<', $ENV{'HOME'} . '/scotusPass'
+    or croak "Couldn't read password: $OS_ERROR";
+my $password = <$pwFile>;
+close $pwFile;
+chomp $password;
+
 my @accounts;
 unshift @accounts, (@justices, @otherAccounts);
 @accounts = map(lc, @accounts);
 
-my $available = join "\n    ", @accounts;
-my $usage =<<END
+unless (scalar @ARGV >= 2) {
+    # Create an array with the last time the justice had an update
+    my @withLast = map(sprintf('    %-20s%s', $_, lastStatus($_, $password)), @accounts);
+    my $available = join "\n    ", @withLast;
+    my $usage =<<END
 Usage: $0 <justice> all other arguments "are the status"
     $available
 END
-;
+    ;
 
-die $usage unless (scalar @ARGV >= 2);
+    die $usage;
+}
 
 # Get the account to post as
 my $username = lc shift @ARGV;
@@ -51,26 +63,23 @@ my $status = join ' ', @ARGV;
 $username = findAccount($username);
 croak "Couldn't find justice: $username " unless ($username);
 
-# Get the password
-open my $pwFile, '<', $ENV{'HOME'} . '/scotusPass'
-    or croak "Couldn't read password: $OS_ERROR";
-my $password = <$pwFile>;
-close $pwFile;
-chomp $password;
-
 my $length = length $status;
 die "$length characters is too much!" if ($length > 140);
 
 # Post!
-update($username, $password, $status);
+my $result = update($username, $password, $status);
+my $statusID = $result->{'id'};
 
-# Post that to FakeScotusTest, too, with an @ for the original source
-my $mirrorStatus = 'RT @'. $username .' '. $status;
-if (length $mirrorStatus > 140) {
-    # Ellipsize if too long
-    $mirrorStatus = (substr $mirrorStatus, 0, 139) . '…';
+# Post that to FakeSCOTUS, too, with an @ for the original source
+if ($username ne 'fakescotustest') {
+    my $mirrorStatus = 'RT @'. $username .' '. $status;
+    if (length $mirrorStatus > 140) {
+        # Ellipsize if too long
+        $mirrorStatus = (substr $mirrorStatus, 0, 139) . '…';
+    }
+
+    update('fakescotus', $password, $statusID);
 }
-update('fakescotus', $password, $mirrorStatus);
 
 sub findAccount {
     my $username = shift;
@@ -95,4 +104,23 @@ sub update {
     );
 
     return $twitterCon->update($status);
+}
+
+# Get the relative time of the user's last update
+sub lastStatus {
+    my ($username, $password) = @_;
+
+    # Make a connection to Twitter
+    my $twitterCon = Net::Twitter->new(
+        traits      => ['API::REST', 'InflateObjects'],
+        username    => $username,
+        password    => $password,
+    );
+
+    my $info = $twitterCon->show_user($username);
+    if (defined $info->{'status'}) {
+        return $info->{'status'}->relative_created_at();
+    } else {
+        return '';
+    }
 }
