@@ -78,7 +78,7 @@ if ($username ne 'fakescotustest') {
         $mirrorStatus = (substr $mirrorStatus, 0, 139) . '…';
     }
 
-    update('fakescotus', $password, $statusID);
+    update('fakescotus', $password, $mirrorStatus);
 }
 
 sub findAccount {
