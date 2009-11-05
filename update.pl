@@ -41,6 +41,20 @@ my @accounts;
 unshift @accounts, (@justices, @otherAccounts);
 @accounts = map(lc, @accounts);
 
+our $opt_c = 'empty';
+getopt('c');
+if ($opt_c ne 'empty') {
+    my $court =<<END
+Ginsburg                            Kennedy                             Alito
+Stevens                                                                 Roberts
+Breyer                                                                  Scalia
+Sotomayor                                                               Thomas
+END
+;
+
+    die $court;
+}
+
 unless (scalar @ARGV >= 2) {
     # Create an array with the last time the justice had an update
     my @withLast = map(sprintf('    %-20s%s', $_, lastStatus($_, $password)), @accounts);
