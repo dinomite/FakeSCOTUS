@@ -1,5 +1,7 @@
 #!/usr/bin/env perl
 # Drew Stephens <drew@dinomite.net>
+#
+# A script to make updating the status of a lot of Twitter accounts easy.
 
 use strict;
 use warnings;
@@ -26,7 +28,7 @@ my @justices = (
     'FakeScalia',
 );
 # Other accounts
-my @otherAccounts = ('FakeSCOTUS', 'fakeSCOTUSTest');
+my @otherAccounts = ('FakeSCOTUS', 'FakeSCOTUSTest');
 
 ##########################  End configuration stuff  ##########################
 
@@ -41,46 +43,30 @@ my @accounts;
 unshift @accounts, (@justices, @otherAccounts);
 @accounts = map(lc, @accounts);
 
-our $opt_c = 'empty';
-getopt('c');
-if ($opt_c ne 'empty') {
-    my $court =<<END
-Ginsburg                            Kennedy                             Alito
-Stevens                                                                 Roberts
-Breyer                                                                  Scalia
-Sotomayor                                                               Thomas
-END
-;
+our $opt = {};
+my $opt_string = 'c';
+getopts("$opt_string", $opt) or usage();
+die getCourtMembership() if $opt->{'c'};
 
-    die $court;
-}
-
+# No arguments, show the usage statement
 unless (scalar @ARGV >= 2) {
-    # Create an array with the last time the justice had an update
-    my @withLast = map(sprintf('    %-20s%s', $_, lastStatus($_, $password)), @accounts);
-    my $available = join "\n    ", @withLast;
-    my $usage =<<END
-Usage: $0 <justice> all other arguments "are the status"
-    $available
-END
-    ;
-
-    die $usage;
+    die usage();
 }
 
 # Get the account to post as
-my $username = lc shift @ARGV;
+my $justice = lc shift @ARGV;
 # Everything else is the message
 my $status = join ' ', @ARGV;
 
 # Do we know this justice?
-$username = findAccount($username);
-croak "Couldn't find justice: $username " unless ($username);
+$username = findUsername($justice);
+croak "Couldn't find justice: $justice" unless ($username);
 
+# Make sure the status isn't too long
 my $length = length $status;
 die "$length characters is too much!" if ($length > 140);
 
-# Post!
+# Post the update!
 my $result = update($username, $password, $status);
 my $statusID = $result->{'id'};
 
@@ -95,7 +81,35 @@ if ($username ne 'fakescotustest') {
     update('fakescotus', $password, $mirrorStatus);
 }
 
-sub findAccount {
+
+
+=head3 getLastUpdateTimes(@accounts)
+
+Get an array of accounts with their last update time.
+
+=cut
+
+sub getLastUpdateTimes {
+    my @accounts = @_;
+
+    my @withLast;
+    foreach my $account (@accounts) {
+        my $lastStatus = getLastStatus($account, $password);
+        push @withLast, sprintf('        %-20s%s', $account, $lastStatus);
+    }
+
+    return @withLast;
+}
+
+=head3 findUsername($username)
+
+Given a justice's last name, get the Twitter username.
+
+returns Justice's Twitter useranem, or undef if none found.
+
+=cut
+
+sub findUsername {
     my $username = shift;
 
     for my $name (@accounts) {
@@ -104,8 +118,14 @@ sub findAccount {
         }
     }
 
-    return 0;
+    return;
 }
+
+=head3 update($username, $password, $status)
+
+Post to Twitter
+
+=cut
 
 sub update {
     my ($username, $password, $status) = @_;
@@ -120,8 +140,13 @@ sub update {
     return $twitterCon->update($status);
 }
 
-# Get the relative time of the user's last update
-sub lastStatus {
+=head3 getLastStatus($username, $password)
+
+Get the relative time of the user's last update
+
+=cut
+
+sub getLastStatus {
     my ($username, $password) = @_;
 
     # Make a connection to Twitter
@@ -137,4 +162,41 @@ sub lastStatus {
     } else {
         return '';
     }
+}
+
+=head3 getCourtMembership()
+
+Get the membership of the court and their political leaning.
+
+=cut
+
+sub getCourtMembership {
+    my $court =<<END
+Ginsburg                            Kennedy                             Alito
+Stevens                                                                 Roberts
+Breyer                                                                  Scalia
+Sotomayor                                                               Thomas
+END
+;
+
+    return $court;
+}
+
+=head3 usage()
+
+Get the usage statement, including the justices' last update times
+
+=cut
+
+sub usage {
+    my $available = join "\n", getLastUpdateTimes(@accounts);
+    my $usage =<<END
+Usage: $0 <justice> all 'other arguments' "are the status"
+        (pass -c to get political leanings)
+
+$available
+END
+;
+
+    return $usage;
 }
