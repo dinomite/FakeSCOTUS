@@ -45,7 +45,7 @@ unshift @accounts, (@justices, @otherAccounts);
 
 our $opt = {};
 my $opt_string = 'c';
-getopts("$opt_string", $opt) or usage();
+getopts("$opt_string", $opt) or die usage();
 die getCourtMembership() if $opt->{'c'};
 
 # No arguments, show the usage statement
@@ -59,7 +59,7 @@ my $justice = lc shift @ARGV;
 my $status = join ' ', @ARGV;
 
 # Do we know this justice?
-$username = findUsername($justice);
+my $username = findUsername($justice);
 croak "Couldn't find justice: $justice" unless ($username);
 
 # Make sure the status isn't too long
